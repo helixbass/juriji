@@ -48,6 +48,7 @@ pub async fn read_events(
 #[derive(FromRow)]
 pub struct ReadEvent {
     pub id: Option<Uuid>,
+    #[sqlx(rename = "type")]
     pub type_: String,
     pub payload: String,
 }
