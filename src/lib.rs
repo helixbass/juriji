@@ -1,13 +1,8 @@
 use std::collections::HashSet;
 
-use serde::Serialize;
 use sqlx::{types::Json, Pool, Postgres, QueryBuilder};
 use tokio::sync::MutexGuard;
 use uuid::Uuid;
-
-pub trait CreateEvent {
-    fn create(&self) -> EventForInsertion;
-}
 
 pub async fn insert_event(
     event: EventForInsertion,
@@ -38,7 +33,7 @@ impl EventForInsertion {
     }
 }
 
-pub async fn read_events<TPayload: Serialize>(event_types: &HashSet<String>) -> Vec<ReadEvent> {
+pub async fn read_events(event_types: &HashSet<String>) -> Vec<ReadEvent> {
     unimplemented!()
 }
 
