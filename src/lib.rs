@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 
 use serde::{de::DeserializeOwned, Serialize};
-use sqlx::{types::Json, Pool, Postgres, QueryBuilder};
+use sqlx::{types::Json, FromRow, Pool, Postgres, QueryBuilder};
 use tokio::sync::MutexGuard;
 use uuid::Uuid;
 
@@ -34,10 +34,18 @@ impl EventForInsertion {
     }
 }
 
-pub async fn read_events(event_types: &HashSet<String>) -> Vec<ReadEvent> {
-    unimplemented!()
+pub async fn read_events(
+    // TODO: narrow to only select event types
+    event_types: Option<&HashSet<String>>,
+    db_pool: &Pool<Postgres>,
+) -> Vec<ReadEvent> {
+    sqlx::query_as::<_, ReadEvent>("SELECT id, type, payload FROM events")
+        .fetch_all(db_pool)
+        .await
+        .unwrap()
 }
 
+#[derive(FromRow)]
 pub struct ReadEvent {
     pub id: Option<Uuid>,
     pub type_: String,
