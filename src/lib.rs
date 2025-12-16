@@ -1,14 +1,78 @@
-pub fn add(left: u64, right: u64) -> u64 {
-    left + right
+use std::collections::HashSet;
+
+use serde::{de::DeserializeOwned, Serialize};
+use sqlx::{types::Json, FromRow, Pool, Postgres, QueryBuilder};
+use tokio::sync::MutexGuard;
+use uuid::Uuid;
+
+pub async fn insert_event(
+    event: EventForInsertion,
+    _db_guard: MutexGuard<'_, ()>,
+    db_pool: &Pool<Postgres>,
+) {
+    let mut query_builder = QueryBuilder::new("INSERT INTO events (id, type, payload)");
+    query_builder.push_values([event], |mut builder, event| {
+        builder
+            .push_bind(event.id)
+            .push_bind(event.type_)
+            .push_bind(Json(event.payload));
+    });
+    let query = query_builder.build();
+
+    query.execute(db_pool).await.unwrap();
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+pub struct EventForInsertion {
+    pub id: Option<Uuid>,
+    pub type_: String,
+    pub payload: serde_json::Value,
+}
 
-    #[test]
-    fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
+impl EventForInsertion {
+    pub fn new(id: Option<Uuid>, type_: String, payload: serde_json::Value) -> Self {
+        Self { id, type_, payload }
     }
+}
+
+pub async fn read_events(
+    // TODO: narrow to only select event types
+    event_types: Option<&HashSet<String>>,
+    db_pool: &Pool<Postgres>,
+) -> Vec<ReadEvent> {
+    sqlx::query_as::<_, ReadEvent>("SELECT id, type, payload FROM events")
+        .fetch_all(db_pool)
+        .await
+        .unwrap()
+}
+
+#[derive(FromRow)]
+pub struct ReadEvent {
+    pub id: Option<Uuid>,
+    #[sqlx(rename = "type")]
+    pub type_: String,
+    pub payload: String,
+}
+
+impl ReadEvent {
+    pub fn new(id: Option<Uuid>, type_: String, payload: String) -> Self {
+        Self { id, type_, payload }
+    }
+}
+
+pub fn to_serde_json_value_without_id<TSerializable: Serialize>(
+    value: &TSerializable,
+) -> serde_json::Value {
+    let mut value = serde_json::to_value(value).unwrap();
+    let _ = value.as_object_mut().unwrap().remove("id").unwrap();
+    value
+}
+
+pub fn from_json_str_with_id<TTarget: DeserializeOwned>(json_str: &str, id: Uuid) -> TTarget {
+    let mut value: serde_json::Value = serde_json::from_str(json_str).unwrap();
+    let id_value = serde_json::to_value(id).unwrap();
+    value
+        .as_object_mut()
+        .unwrap()
+        .insert("id".to_owned(), id_value);
+    serde_json::from_value(value).unwrap()
 }
