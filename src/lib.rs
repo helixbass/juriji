@@ -5,23 +5,27 @@ use sqlx::{types::Json, Pool, Postgres, QueryBuilder};
 use tokio::sync::MutexGuard;
 use uuid::Uuid;
 
-pub async fn insert_event<TPayload: Serialize>(
-    id: Option<Uuid>,
-    type_: String,
-    payload: &TPayload,
+pub async fn insert_event(
+    event: EventForInsertion,
     _db_guard: &MutexGuard<'_, ()>,
     db_pool: &Pool<Postgres>,
 ) {
     let mut query_builder = QueryBuilder::new("INSERT INTO events (id, type, payload)");
-    query_builder.push_values(&[(id, type_, Json(payload))], |mut builder, fields| {
+    query_builder.push_values([event], |mut builder, event| {
         builder
-            .push_bind(fields.0)
-            .push_bind(fields.1.clone())
-            .push_bind(fields.2);
+            .push_bind(event.id)
+            .push_bind(event.type_)
+            .push_bind(Json(event.payload));
     });
     let query = query_builder.build();
 
     query.execute(db_pool).await.unwrap();
+}
+
+pub struct EventForInsertion {
+    pub id: Option<Uuid>,
+    pub type_: String,
+    pub payload: serde_json::Value,
 }
 
 pub async fn read_events<TPayload: Serialize>(event_types: &HashSet<String>) -> Vec<ReadEvent> {
@@ -38,4 +42,10 @@ impl ReadEvent {
     pub fn new(id: Option<Uuid>, type_: String, payload: String) -> Self {
         Self { id, type_, payload }
     }
+}
+
+pub trait CobbleAll: Sized {
+    fn relevant_event_types(&self) -> HashSet<String>;
+
+    fn cobble(events: &[ReadEvent]) -> Vec<Self>;
 }
