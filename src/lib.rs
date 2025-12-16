@@ -1,5 +1,6 @@
 use std::collections::HashSet;
 
+use serde::{de::DeserializeOwned, Serialize};
 use sqlx::{types::Json, Pool, Postgres, QueryBuilder};
 use tokio::sync::MutexGuard;
 use uuid::Uuid;
@@ -49,8 +50,20 @@ impl ReadEvent {
     }
 }
 
-pub trait CobbleAll: Sized {
-    fn relevant_event_types(&self) -> HashSet<String>;
+pub fn to_serde_json_value_without_id<TSerializable: Serialize>(
+    value: &TSerializable,
+) -> serde_json::Value {
+    let mut value = serde_json::to_value(value).unwrap();
+    let _ = value.as_object_mut().unwrap().remove("id").unwrap();
+    value
+}
 
-    fn cobble(events: &[ReadEvent]) -> Vec<Self>;
+pub fn from_json_str_with_id<TTarget: DeserializeOwned>(json_str: &str, id: Uuid) -> TTarget {
+    let mut value: serde_json::Value = serde_json::from_str(json_str).unwrap();
+    let id_value = serde_json::to_value(id).unwrap();
+    value
+        .as_object_mut()
+        .unwrap()
+        .insert("id".to_owned(), id_value);
+    serde_json::from_value(value).unwrap()
 }
