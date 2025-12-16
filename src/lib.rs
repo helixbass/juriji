@@ -7,7 +7,7 @@ use uuid::Uuid;
 
 pub async fn insert_event(
     event: EventForInsertion,
-    _db_guard: &MutexGuard<'_, ()>,
+    _db_guard: MutexGuard<'_, ()>,
     db_pool: &Pool<Postgres>,
 ) {
     let mut query_builder = QueryBuilder::new("INSERT INTO events (id, type, payload)");
