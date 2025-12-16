@@ -1,14 +1,41 @@
-pub fn add(left: u64, right: u64) -> u64 {
-    left + right
+use std::collections::HashSet;
+
+use serde::Serialize;
+use sqlx::{types::Json, Pool, Postgres, QueryBuilder};
+use tokio::sync::MutexGuard;
+use uuid::Uuid;
+
+pub async fn insert_event<TPayload: Serialize>(
+    id: Option<Uuid>,
+    type_: String,
+    payload: &TPayload,
+    _db_guard: &MutexGuard<'_, ()>,
+    db_pool: &Pool<Postgres>,
+) {
+    let mut query_builder = QueryBuilder::new("INSERT INTO events (id, type, payload)");
+    query_builder.push_values(&[(id, type_, Json(payload))], |mut builder, fields| {
+        builder
+            .push_bind(fields.0)
+            .push_bind(fields.1.clone())
+            .push_bind(fields.2);
+    });
+    let query = query_builder.build();
+
+    query.execute(db_pool).await.unwrap();
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
+pub async fn read_events<TPayload: Serialize>(event_types: &HashSet<String>) -> Vec<ReadEvent> {
+    unimplemented!()
+}
 
-    #[test]
-    fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
+pub struct ReadEvent {
+    pub id: Option<Uuid>,
+    pub type_: String,
+    pub payload: String,
+}
+
+impl ReadEvent {
+    pub fn new(id: Option<Uuid>, type_: String, payload: String) -> Self {
+        Self { id, type_, payload }
     }
 }
