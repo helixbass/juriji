@@ -5,6 +5,10 @@ use sqlx::{types::Json, Pool, Postgres, QueryBuilder};
 use tokio::sync::MutexGuard;
 use uuid::Uuid;
 
+pub trait CreateEvent {
+    fn create(&self) -> EventForInsertion;
+}
+
 pub async fn insert_event(
     event: EventForInsertion,
     _db_guard: &MutexGuard<'_, ()>,
@@ -26,6 +30,12 @@ pub struct EventForInsertion {
     pub id: Option<Uuid>,
     pub type_: String,
     pub payload: serde_json::Value,
+}
+
+impl EventForInsertion {
+    pub fn new(id: Option<Uuid>, type_: String, payload: serde_json::Value) -> Self {
+        Self { id, type_, payload }
+    }
 }
 
 pub async fn read_events<TPayload: Serialize>(event_types: &HashSet<String>) -> Vec<ReadEvent> {
