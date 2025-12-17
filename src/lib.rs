@@ -22,6 +22,23 @@ pub async fn insert_event(
     query.execute(db_pool).await.unwrap();
 }
 
+pub async fn insert_events(
+    events: &[EventForInsertion],
+    _db_guard: MutexGuard<'_, ()>,
+    db_pool: &Pool<Postgres>,
+) {
+    let mut query_builder = QueryBuilder::new("INSERT INTO events (id, type, payload)");
+    query_builder.push_values(events, |mut builder, event| {
+        builder
+            .push_bind(event.id)
+            .push_bind(event.type_)
+            .push_bind(Json(event.payload));
+    });
+    let query = query_builder.build();
+
+    query.execute(db_pool).await.unwrap();
+}
+
 pub struct EventForInsertion {
     pub id: Option<Uuid>,
     pub type_: String,
