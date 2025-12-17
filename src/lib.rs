@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::collections::HashSet;
 
 use serde::{de::DeserializeOwned, Serialize};
@@ -22,12 +23,13 @@ pub async fn insert_event(
     query.execute(db_pool).await.unwrap();
 }
 
-pub async fn insert_events(
-    events: &[EventForInsertion],
+pub async fn insert_events<'a, TItem: Into<Cow<'a, EventForInsertion>>>(
+    events: impl IntoIterator<Item = TItem>,
     _db_guard: MutexGuard<'_, ()>,
     db_pool: &Pool<Postgres>,
 ) {
     let mut query_builder = QueryBuilder::new("INSERT INTO events (id, type, payload)");
+    let events = events.into_iter().map(|event| event.into().into_owned());
     query_builder.push_values(events, |mut builder, event| {
         builder
             .push_bind(event.id)
@@ -39,6 +41,7 @@ pub async fn insert_events(
     query.execute(db_pool).await.unwrap();
 }
 
+#[derive(Clone)]
 pub struct EventForInsertion {
     pub id: Option<Uuid>,
     pub type_: String,
