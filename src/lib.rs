@@ -65,7 +65,7 @@ pub async fn read_events(
     event_types: Option<&HashSet<String>>,
     db_pool: &Pool<Postgres>,
 ) -> Vec<ReadEvent> {
-    sqlx::query_as::<_, ReadEvent>("SELECT id, type, payload FROM events")
+    sqlx::query_as::<_, ReadEvent>("SELECT id, type, payload FROM events ORDER BY event_id ASC")
         .fetch_all(db_pool)
         .await
         .unwrap()
